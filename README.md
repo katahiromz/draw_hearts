@@ -28,7 +28,6 @@ function drawHeart(ctx, cx, cy, r) {
     const rightControlY = cy - r * 0.8;
     const bottomY = cy + r * 0.9;
 
-    ctx.beginPath();
     // ハート下端からスタートして反時計回りに描く
     ctx.moveTo(cx, bottomY);
 
