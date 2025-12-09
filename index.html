@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>draw_hearts</title>
+</head>
+<body>
+    <h1>ハート形を描く</h1>
+
+    <canvas id="my-canvas" width="300" height="300"></canvas>
+
+    <script>
+        let canvas = document.getElementById('my-canvas');
+        let width = canvas.width, height = canvas.height; // キャンバスのサイズ
+        let ctx = canvas.getContext('2d', { alpha: false }); // 描画に使うコンテキスト
+        let anime = null; // アニメーション
+        let time = (new Date()).getTime(); // 時刻(ミリ秒単位)
+        let objects = []; // オブジェクトの配列
+
+        /**
+         * @typedef {object} Position
+         * @property {number} x - X座標
+         * @property {number} y - Y座標
+         */
+
+        /**
+         * @typedef {object} Velocity
+         * @property {number} x - X方向の速度
+         * @property {number} y - Y方向の速度
+         */
+
+        /**
+         * @typedef {object} MovingObject
+         * @property {Position} position - 初期位置
+         * @property {Velocity} velocity - 初期速度
+         */
+
+        /**
+         * オブジェクト群を作成する。
+         * * @global {number} width - 描画領域の幅（初期位置と速度の範囲設定に使用）。
+         * @global {number} height - 描画領域の高さ（初期位置と速度の範囲設定に使用）。
+         */
+        const createObjects = () => {
+            let objects = [];
+            let cxy = (width + height) / 2;
+            // ランダムに位置と速度を決めて、オブジェクトを追加する
+            for (let i = 0; i < 4; ++i) {
+                // 位置
+                const px = Math.random() * width;
+                const py = Math.random() * height;
+                // 速度
+                const vx = (0.5 - Math.random()) * width;
+                const vy = (0.5 - Math.random()) * height;
+                // 半径
+                const radius = (1 + Math.random()) * cxy * 0.1;
+                // オブジェクトを追加
+                const obj = {position: {x: px, y: py}, velocity: {x: vx, y: vy}, radius: radius};
+                objects.push(obj);
+            }
+            return objects;
+        };
+
+        /**
+         * オブジェクト群を現在の速度と経過時間に基づいて動かし、
+         * 境界 (0, 0) から (width, height) までの範囲で壁との衝突判定と反射を行う。
+         * * @param {MovingObject[]} objects - 動かす対象のオブジェクトの配列。各オブジェクトはpositionとvelocityプロパティを持つ。
+         * @param {number} diff_time - 前回の更新からの経過時間 (ミリ秒)。
+         * @param {number} width - 描画領域の幅 (グローバル変数として定義されていると想定)。
+         * @param {number} height - 描画領域の高さ (グローバル変数として定義されていると想定)。
+         */
+        const moveObjects = (objects, diff_time) => {
+            let diff_seconds = diff_time / 1000.0; // ミリ秒を秒単位にする
+
+            for (let obj of objects) {
+                obj.position.x += obj.velocity.x * diff_seconds;
+                obj.position.y += obj.velocity.y * diff_seconds;
+            }
+
+            // カベに当たったら跳ね返る
+            for (let obj of objects) {
+                if (obj.position.x < 0) {
+                    obj.position.x = 0;
+                    obj.velocity.x = -obj.velocity.x;
+                } else if (obj.position.x > width) {
+                    obj.position.x = width;
+                    obj.velocity.x = -obj.velocity.x;
+                }
+                if (obj.position.y < 0) {
+                    obj.position.y = 0;
+                    obj.velocity.y = -obj.velocity.y;
+                } else if (obj.position.y > height) {
+                    obj.position.y = height;
+                    obj.velocity.y = -obj.velocity.y;
+                }
+            }
+        };
+
+        /**
+         * ハートを描画する
+         * * @param {CanvasRenderingContext2D} ctx - canvas.getContext('2d')
+         * @param {number} cx - ハートの中心 x
+         * @param {number} cy - ハートの中心 y
+         * @param {number} r - ハートの半径（サイズの目安。大きめの値で大きくなる）
+         */
+        function drawHeart(ctx, cx, cy, r) {
+            if (r <= 0) return;
+
+            // 比率は試行的に決めたもの。r が全体の「サイズ」になるよう調整。
+            // cx, cy はハートの中心（見た目で中心に配置されるよう補正）。
+            const topOffset = r * 0.3; // 上のくぼみの高さ
+            const leftControlX = cx - r;
+            const rightControlX = cx + r;
+            const leftControlY = cy - r * 0.6;
+            const rightControlY = cy - r * 0.8;
+            const bottomY = cy + r * 0.9;
+
+            ctx.beginPath();
+            // ハート下端からスタートして反時計回りに描く
+            ctx.moveTo(cx, bottomY);
+
+            // 右下 -> 右上 のベジェ
+            ctx.bezierCurveTo(
+                cx + r * 1.5, cy + r * 0.15, // 1st control point
+                cx + r * 0.8, cy - r * 1.2,  // 2nd control point
+                cx, cy - topOffset           // end point (上の中央のくぼみ)
+            );
+
+            // 左上 -> 左下 のベジェ
+            ctx.bezierCurveTo(
+                cx - r * 0.8, cy - r * 1.2,  // 1st control point
+                cx - r * 1.5, cy + r * 0.15, // 2nd control point
+                cx, bottomY                  // end point (元の下端)
+            );
+        }
+
+        /**
+         * オブジェクトの配列を受け取り、それらを線で結び、各位置に円を描画する。
+         * * @param {CanvasRenderingContext2D} ctx - 描画に使用するCanvas 2Dコンテキスト（グローバルに定義されていると想定）。
+         * @param {MovingObject[]} objects - 描画するオブジェクトの配列。各オブジェクトはpositionプロパティを持つ。
+         */
+        const drawObjects = (ctx, objects) => {
+            // オブジェクトの位置に複数のハートを描画する
+            for (let obj of objects) {
+                ctx.strokeStyle = "black";
+                ctx.lineWidth = 3;
+                ctx.fillStyle = "red";
+                ctx.beginPath();
+                drawHeart(ctx, obj.position.x, obj.position.y, obj.radius);
+                ctx.stroke();
+                ctx.fill();
+                // ハートを囲う黄色の円を描く
+                ctx.strokeStyle = "yellow";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(obj.position.x, obj.position.y, obj.radius, 0, 2 * Math.PI, false);
+                ctx.stroke();
+            }
+        }
+
+        // 描画する関数
+        const render = () => {
+            width = canvas.width;
+            height = canvas.height;
+
+            // 背景を黒で塗りつぶす
+            ctx.clearRect(0, 0, width, height);
+
+            // 経過時間を計算
+            const new_time = (new Date()).getTime();
+            const diff_time = new_time - time; // 経過時間
+            time = new_time; // 時刻を更新
+
+            // オブジェクト群を動かす
+            moveObjects(objects, diff_time);
+
+            // オブジェクト群を描く
+            drawObjects(ctx, objects);
+
+            // 次のアニメーションフレームを要求する
+            if (anime)
+                anime = window.requestAnimationFrame(render);
+        };
+
+        // オブジェクト配列の作成
+        objects = createObjects();
+        // アニメーションを開始する
+        anime = window.requestAnimationFrame(render);
+    </script>
+</body>
+</html>
