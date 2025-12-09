@@ -45,4 +45,14 @@ function drawHeart(ctx, cx, cy, r) {
         cx, bottomY                  // end point (元の下端)
     );
 }
+
+// 使い方
+let ctx = canvas.getContext('2d');
+ctx.strokeStyle = "black"; // 線の色
+ctx.lineWidth = 3; // 線の太さ
+ctx.fillStyle = "red"; // ハートの色
+ctx.beginPath(); // パスの開始
+drawHeart(ctx, 100, 100, 50); // ハートを描く
+ctx.stroke(); // 線を描く
+ctx.fill(); // 塗りつぶす
 ```
