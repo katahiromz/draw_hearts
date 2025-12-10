@@ -11,7 +11,7 @@ JavaScriptでハート形を描きます。
 ```js
 /**
  * ハートを描画する
- * * @param {CanvasRenderingContext2D} ctx - canvas.getContext('2d')
+ * @param {CanvasRenderingContext2D} ctx - canvas.getContext('2d')
  * @param {number} cx - ハートの中心 x
  * @param {number} cy - ハートの中心 y
  * @param {number} r - ハートの半径（サイズの目安。大きめの値で大きくなる）
